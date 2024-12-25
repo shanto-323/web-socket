@@ -1,7 +1,49 @@
 package main
 
-import()
+import (
+	"fmt"
+	"io"
+	"net/http"
 
-func main(){
+	"golang.org/x/net/websocket"
+)
 
+type Server struct {
+	conns map[*websocket.Conn]bool
+}
+
+func ApiServer() *Server {
+	return &Server{
+		conns: make(map[*websocket.Conn]bool),
+	}
+}
+
+func (s *Server) handleWS(ws *websocket.Conn) {
+	fmt.Println("new incoming connection from client :", ws.RemoteAddr())
+
+	s.conns[ws] = true
+	s.readLoop(ws)
+}
+
+func (s *Server) readLoop(ws *websocket.Conn) {
+	buf := make([]byte, 1024)
+	for {
+		n, err := ws.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println(err)
+			continue
+		}
+
+		msg := buf[:n]
+		fmt.Println(string(msg) + "this incomming")
+	}
+}
+
+func main() {
+	server := ApiServer()
+	http.Handle("/ws", websocket.Handler(server.handleWS))
+	http.ListenAndServe(":8080", nil)
 }
